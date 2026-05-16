@@ -63,3 +63,8 @@ This is a simple blog application built with Node.js, Express, and React.
 2. Register a new account
 3. Login with your credentials
 4. Create and manage blog posts
+
+
+PORT=5001
+MONGO_URI=mongodb+srv://veda:veda123@cluster0.rfdylk8.mongodb.net/
+JWT_SECRET=secret123 

@@ -9,7 +9,7 @@ function PostCard({ post, refresh }) {
 
   return (
     <div className="card">
-      <h3 style={{ marginBottom: "10px" }}>
+      <h3 style={{ marginBottom: "10px" , color:"black" }}>
         {post.title}
       </h3>
 
