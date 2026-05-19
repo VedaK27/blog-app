@@ -256,3 +256,540 @@ textarea.form-input {
 .animate-fade-in {
   animation: fadeIn 0.4s ease-out forwards;
 }
+
+/*
+========================================================
+FULL MERN BLOG APP DEPLOYMENT ON AWS EC2
+========================================================
+
+STACK:
+- React/Vite Frontend
+- Node/Express Backend
+- MongoDB Atlas
+- AWS EC2 Ubuntu
+- PM2
+- Nginx
+
+========================================================
+1. CREATE EC2 INSTANCE
+========================================================
+
+AWS EC2 SETTINGS:
+
+Name:
+blog-app
+
+AMI:
+Ubuntu Server 24.04 LTS
+
+Instance Type:
+t2.micro
+
+Create Key Pair:
+blog-key.pem
+
+========================================================
+2. SECURITY GROUP SETTINGS
+========================================================
+
+ALLOW INBOUND PORTS:
+
+SSH         → 22
+HTTP        → 80
+HTTPS       → 443
+Custom TCP  → 5001
+
+========================================================
+3. CONNECT TO EC2
+========================================================
+
+chmod 400 blog-key.pem
+
+ssh -i blog-key.pem ubuntu@YOUR_PUBLIC_IP
+
+
+========================================================
+4. INSTALL NODE.JS
+========================================================
+
+sudo apt update
+
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+
+sudo apt install -y nodejs
+
+node -v
+npm -v
+
+
+========================================================
+5. INSTALL REQUIRED TOOLS
+========================================================
+
+sudo apt install git nginx -y
+
+sudo npm install -g pm2
+
+
+========================================================
+6. CLONE PROJECT
+========================================================
+
+git clone YOUR_GITHUB_REPO
+
+EXAMPLE:
+
+git clone https://github.com/username/blog-app.git
+
+
+========================================================
+7. BACKEND SETUP
+========================================================
+
+cd blog-app/server
+
+npm install
+
+
+========================================================
+8. CREATE BACKEND .ENV
+========================================================
+
+nano .env
+
+
+---------------- BACKEND .ENV ----------------
+
+PORT=5001
+
+MONGO_URI=mongodb+srv://username:password@cluster.mongodb.net/blog
+
+JWT_SECRET=my_super_secret
+
+------------------------------------------------
+
+
+========================================================
+9. COMMON ENV ERROR
+========================================================
+
+ERROR:
+
+MongooseError:
+The `uri` parameter to `openUri()` must be a string
+
+CAUSE:
+
+Wrong environment variable name.
+
+WRONG:
+
+MONGO_URL=...
+
+CORRECT:
+
+MONGO_URI=...
+
+AND code should use:
+
+process.env.MONGO_URI
+
+
+========================================================
+10. BACKEND SERVER.JS / INDEX.JS
+========================================================
+
+IMPORTANT:
+
+Backend MUST listen on 0.0.0.0
+
+USE:
+
+app.listen(port, '0.0.0.0', () => {
+    console.log(`Server started on port ${port}`);
+});
+
+
+========================================================
+11. TEST BACKEND
+========================================================
+
+node index.js
+
+OR
+
+node server.js
+
+
+========================================================
+12. VERIFY BACKEND
+========================================================
+
+curl localhost:5001
+
+OR
+
+curl localhost:5001/api/posts
+
+OR
+
+curl localhost:5001/api/auth/login
+
+
+========================================================
+13. COMMON BACKEND ERRORS
+========================================================
+
+--------------------------------------------------------
+ERROR:
+Cannot find module indes.js
+--------------------------------------------------------
+
+CAUSE:
+Typo.
+
+WRONG:
+
+node indes.js
+
+CORRECT:
+
+node index.js
+
+
+--------------------------------------------------------
+ERROR:
+ERR_CONNECTION_REFUSED
+--------------------------------------------------------
+
+CAUSE:
+Backend not running OR wrong frontend API URL.
+
+
+--------------------------------------------------------
+ERROR:
+502 Bad Gateway
+--------------------------------------------------------
+
+CAUSE:
+Nginx cannot connect to backend.
+
+
+--------------------------------------------------------
+ERROR:
+404 Not Found
+--------------------------------------------------------
+
+CAUSE:
+Wrong nginx proxy slash configuration.
+
+
+========================================================
+14. START BACKEND USING PM2
+========================================================
+
+pm2 start index.js --name blogBackend
+
+pm2 save
+
+pm2 status
+
+pm2 logs
+
+
+========================================================
+15. FRONTEND SETUP
+========================================================
+
+cd ../frontend
+
+npm install
+
+
+========================================================
+16. FRONTEND API FIX
+========================================================
+
+NEVER USE:
+
+http://localhost:5001/api/...
+
+BECAUSE:
+
+localhost in browser means USER'S MACHINE.
+
+
+========================================================
+17. CORRECT FRONTEND API URL
+========================================================
+
+WRONG:
+
+axios.post("http://localhost:5001/api/auth/login")
+
+CORRECT:
+
+axios.post("/api/auth/login")
+
+
+========================================================
+18. FRONTEND ENV
+========================================================
+
+nano .env
+
+
+---------------- FRONTEND .ENV ----------------
+
+VITE_API_URL=/api
+
+------------------------------------------------
+
+
+========================================================
+19. EXAMPLE FRONTEND API CONFIG
+========================================================
+
+const API = "/api";
+
+fetch(`${API}/posts`);
+
+axios.post(`${API}/auth/login`);
+
+axios.get(`${API}/posts`);
+
+
+========================================================
+20. BUILD FRONTEND
+========================================================
+
+npm run build
+
+
+========================================================
+21. COPY FRONTEND BUILD
+========================================================
+
+sudo rm -rf /var/www/html/*
+
+sudo cp -r dist/* /var/www/html/
+
+
+========================================================
+22. NGINX CONFIGURATION
+========================================================
+
+sudo nano /etc/nginx/sites-available/default
+
+
+---------------- NGINX CONFIG ----------------
+
+server {
+    listen 80;
+    server_name _;
+
+    root /var/www/html;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    location /api/ {
+
+        proxy_pass http://localhost:5001;
+
+        proxy_http_version 1.1;
+
+        proxy_set_header Upgrade $http_upgrade;
+
+        proxy_set_header Connection "upgrade";
+
+        proxy_set_header Host $host;
+
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+
+------------------------------------------------
+
+
+========================================================
+23. IMPORTANT NGINX NOTE
+========================================================
+
+WRONG:
+
+proxy_pass http://localhost:5001/;
+
+CORRECT:
+
+proxy_pass http://localhost:5001;
+
+Trailing slash can break routes.
+
+
+========================================================
+24. TEST NGINX
+========================================================
+
+sudo nginx -t
+
+
+========================================================
+25. RESTART NGINX
+========================================================
+
+sudo systemctl restart nginx
+
+sudo systemctl enable nginx
+
+
+========================================================
+26. FINAL TEST URLS
+========================================================
+
+Frontend:
+
+http://YOUR_PUBLIC_IP
+
+
+Backend:
+
+http://YOUR_PUBLIC_IP/api/posts
+
+OR
+
+http://YOUR_PUBLIC_IP/api/auth/login
+
+
+========================================================
+27. USEFUL COMMANDS
+========================================================
+
+RESTART PM2:
+
+pm2 restart all
+
+
+DELETE PM2 PROCESS:
+
+pm2 delete all
+
+
+VIEW PM2 LOGS:
+
+pm2 logs
+
+
+VIEW PM2 STATUS:
+
+pm2 status
+
+
+RESTART NGINX:
+
+sudo systemctl restart nginx
+
+
+CHECK NGINX CONFIG:
+
+sudo nginx -t
+
+
+CHECK LISTENING PORTS:
+
+sudo lsof -i -P -n | grep LISTEN
+
+
+TEST BACKEND INTERNALLY:
+
+curl localhost:5001/api/posts
+
+
+========================================================
+28. DEPLOYMENT FLOW
+========================================================
+
+Browser
+   ↓
+EC2 Public IP
+   ↓
+Nginx Port 80
+   ↓
+/api
+   ↓
+Node Backend Port 5001
+   ↓
+MongoDB Atlas
+
+
+========================================================
+29. COMMON PRODUCTION MISTAKES
+========================================================
+
+1. Using localhost in frontend API URL
+
+WRONG:
+http://localhost:5001
+
+CORRECT:
+/api
+
+
+--------------------------------------------------------
+
+2. Backend not listening on 0.0.0.0
+
+WRONG:
+
+app.listen(port)
+
+CORRECT:
+
+app.listen(port, '0.0.0.0')
+
+
+--------------------------------------------------------
+
+3. Wrong MongoDB env variable
+
+WRONG:
+
+MONGO_URL
+
+CORRECT:
+
+MONGO_URI
+
+
+--------------------------------------------------------
+
+4. Forgetting frontend rebuild
+
+AFTER CHANGING API URL:
+
+npm run build
+
+
+--------------------------------------------------------
+
+5. Forgetting to copy build again
+
+sudo cp -r dist/* /var/www/html/
+
+
+========================================================
+30. OPTIONAL HTTPS SETUP
+========================================================
+
+sudo apt install certbot python3-certbot-nginx -y
+
+sudo certbot --nginx
+
+
+========================================================
+DEPLOYMENT SUCCESSFUL
+========================================================
+
+*/
